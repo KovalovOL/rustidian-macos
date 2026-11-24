@@ -65,7 +65,7 @@ pub struct RenameOutcome {
 }
 
 impl Vault {
-    #[cfg(target_os = "linux")]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     pub fn duplicate_folder(&mut self, from: &Path) -> Result<PathBuf> {
         if from.as_os_str().is_empty() || !self.folders.iter().any(|path| path == from) {
             return Err("Choose an existing folder inside this vault.".into());
@@ -214,7 +214,7 @@ impl Vault {
         Ok(destination)
     }
 
-    #[cfg(not(target_os = "linux"))]
+    #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     pub fn duplicate_folder(&mut self, _from: &Path) -> Result<PathBuf> {
         Err("Guarded folder copying is currently available on Linux.".into())
     }
@@ -767,7 +767,7 @@ impl Vault {
                 ));
             }
         }
-        #[cfg(target_os = "linux")]
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
         {
             use std::os::unix::fs::MetadataExt;
             let metadata = std::fs::symlink_metadata(&original)
@@ -791,7 +791,7 @@ impl Vault {
             rename_noreplace(&original, &destination)
                 .map_err(|error| format!("Cannot rename file or folder: {error}"))?;
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(any(target_os = "linux", target_os = "macos")))]
         return Err("Guarded renaming is currently available on Linux.".into());
         for note in &mut self.notes {
             note.path = moved_path(&note.path, &plan.from, &plan.to, folder);
@@ -900,6 +900,47 @@ pub(crate) fn rename_noreplace(from: &Path, to: &Path) -> std::io::Result<()> {
         rustix::fs::RenameFlags::NOREPLACE,
     )
     .map_err(std::io::Error::from)
+}
+
+/// APFS/HFS+ expose the same atomic no-clobber guarantee through renamex_np.
+#[cfg(target_os = "macos")]
+pub(crate) fn rename_noreplace(from: &Path, to: &Path) -> std::io::Result<()> {
+    use std::{ffi::CString, os::unix::ffi::OsStrExt};
+    let from = CString::new(from.as_os_str().as_bytes())?;
+    let to = CString::new(to.as_os_str().as_bytes())?;
+    // SAFETY: both strings are NUL-terminated and live through the syscall. RENAME_EXCL
+    // atomically rejects an existing destination, including a racing writer.
+    if unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_EXCL) } == 0 {
+        Ok(())
+    } else {
+        Err(std::io::Error::last_os_error())
+    }
+}
+
+#[cfg(all(test, target_os = "macos"))]
+mod macos_atomic_tests {
+    #[test]
+    fn an_existing_destination_is_never_replaced_by_the_native_rename() {
+        let root = tempfile::tempdir().unwrap();
+        let source = root.path().join("Нотатка #1\n.md");
+        let destination = root.path().join("Інша нотатка.md");
+        std::fs::write(&source, "source bytes").unwrap();
+        std::fs::write(&destination, "keep existing destination").unwrap();
+        let error = super::rename_noreplace(&source, &destination).unwrap_err();
+        assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+        assert_eq!(std::fs::read_to_string(&source).unwrap(), "source bytes");
+        assert_eq!(
+            std::fs::read_to_string(&destination).unwrap(),
+            "keep existing destination"
+        );
+        std::fs::remove_file(&destination).unwrap();
+        super::rename_noreplace(&source, &destination).unwrap();
+        assert!(!source.exists());
+        assert_eq!(
+            std::fs::read_to_string(&destination).unwrap(),
+            "source bytes"
+        );
+    }
 }
 
 fn same_move_source(expected: &std::fs::Metadata, current: &std::fs::Metadata) -> bool {

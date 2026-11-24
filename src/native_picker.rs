@@ -1,4 +1,5 @@
 //! Native file dialogs and system file-manager actions.
+#[cfg(not(target_os = "macos"))]
 use std::{
     io::Read,
     path::{Path, PathBuf},
@@ -14,6 +15,7 @@ pub enum Kind {
 
 /// Select an item in its parent using the desktop file-manager interface.
 /// https://wiki.freedesktop.org/www/Specifications/file-manager-interface/
+#[cfg(not(target_os = "macos"))]
 pub fn reveal(path: &Path) -> Result<(), String> {
     const URI_PATH: &percent_encoding::AsciiSet = &percent_encoding::NON_ALPHANUMERIC.remove(b'/');
     // A comma is an array separator in dbus-send; encode it with the other URI bytes.
@@ -45,12 +47,17 @@ pub fn reveal(path: &Path) -> Result<(), String> {
     }
 }
 
+#[cfg(target_os = "macos")]
+pub use crate::platform::macos::{Picker, reveal};
+
+#[cfg(not(target_os = "macos"))]
 #[derive(Default)]
 pub struct Picker {
     child: Option<Child>,
     kind: Kind,
 }
 
+#[cfg(not(target_os = "macos"))]
 impl Picker {
     pub fn active(&self) -> bool {
         self.child.is_some()
@@ -140,13 +147,14 @@ impl Picker {
     }
 }
 
+#[cfg(not(target_os = "macos"))]
 impl Drop for Picker {
     fn drop(&mut self) {
         self.cancel();
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, not(target_os = "macos")))]
 mod tests {
     use super::*;
     use std::time::{Duration, Instant};

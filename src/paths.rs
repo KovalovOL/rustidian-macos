@@ -35,11 +35,7 @@ pub fn state_file(root: &Path, group: &str, extension: &str) -> Option<PathBuf> 
         collections::hash_map::DefaultHasher,
         hash::{Hash, Hasher},
     };
-    let base = std::env::var_os("XDG_STATE_HOME")
-        .map(PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/state"))
-        })?;
+    let base = crate::platform::state_base()?;
     let mut hash = DefaultHasher::new();
     root.hash(&mut hash);
     Some(

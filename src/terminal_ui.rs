@@ -721,7 +721,33 @@ impl Colors {
             background: visuals.panel_fill,
             ansi: ansi.map(|value| {
                 let [_, red, green, blue] = value.to_be_bytes();
-                Color32::from_rgb(red, green, blue)
+                let color = Color32::from_rgb(red, green, blue);
+                if contrast(color, visuals.panel_fill) >= 4.0 {
+                    return color;
+                }
+                let endpoint = if contrast(Color32::WHITE, visuals.panel_fill)
+                    > contrast(Color32::BLACK, visuals.panel_fill)
+                {
+                    Color32::WHITE
+                } else {
+                    Color32::BLACK
+                };
+                for step in 1..=20 {
+                    let amount = step as f32 / 20.0;
+                    let mix = |start: u8, end: u8| {
+                        (f32::from(start) + (f32::from(end) - f32::from(start)) * amount).round()
+                            as u8
+                    };
+                    let adjusted = Color32::from_rgb(
+                        mix(red, endpoint.r()),
+                        mix(green, endpoint.g()),
+                        mix(blue, endpoint.b()),
+                    );
+                    if contrast(adjusted, visuals.panel_fill) >= 4.5 {
+                        return adjusted;
+                    }
+                }
+                endpoint
             }),
         }
     }
@@ -1268,23 +1294,26 @@ mod tests {
         let ctx = egui::Context::default();
         crate::theme::apply_appearance(&ctx, crate::theme::Appearance::System);
         for theme in [egui::Theme::Light, egui::Theme::Dark] {
-            let visuals = ctx.style_of(theme).visuals.clone();
-            let colors = Colors::new(&visuals);
+            let base_visuals = ctx.style_of(theme).visuals.clone();
             let dark = theme == egui::Theme::Dark;
             let panels = [
-                visuals.panel_fill,
+                Palette::Teal.side(dark),
+                Palette::Obsidian.side(dark),
                 Palette::LoveSpace.side(dark),
                 Palette::ElpisGold.side(dark),
                 Palette::Signature.side(dark),
             ];
             for panel in panels {
+                let mut visuals = base_visuals.clone();
+                visuals.panel_fill = panel;
+                let colors = Colors::new(&visuals);
                 for (index, color) in colors.ansi.iter().enumerate() {
                     let ratio = contrast(*color, panel);
                     assert!(ratio >= 4.0, "colour {index} on {panel:?}: {ratio}");
                 }
+                assert_eq!(colors.background, visuals.panel_fill);
+                assert_eq!(colors.foreground, visuals.text_color());
             }
-            assert_eq!(colors.background, visuals.panel_fill);
-            assert_eq!(colors.foreground, visuals.text_color());
         }
     }
 

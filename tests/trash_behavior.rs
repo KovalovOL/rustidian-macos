@@ -1,3 +1,5 @@
+// This fixture asserts the FreeDesktop on-disk Trash layout, not AppKit's system Trash.
+#![cfg(target_os = "linux")]
 use rustidian::vault::Vault;
 use std::{fs, path::Path};
 

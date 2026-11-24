@@ -189,6 +189,12 @@ pub struct NotesApp {
     page_preview: crate::page_preview::Manager,
     pub(crate) graph: crate::graph_ui::Manager,
     pub(crate) always_update_links: bool,
+    #[cfg(target_os = "macos")]
+    native_menu: Option<crate::macos_menu::NativeMenu>,
+    #[cfg(target_os = "macos")]
+    native_qa: crate::macos_qa::Capture,
+    #[cfg(target_os = "macos")]
+    pub(crate) open_documents: Option<crate::macos_events::OpenDocuments>,
 }
 
 impl NotesApp {
@@ -295,8 +301,19 @@ impl NotesApp {
             page_preview: Default::default(),
             graph: Default::default(),
             always_update_links: false,
+            #[cfg(target_os = "macos")]
+            native_menu: None,
+            #[cfg(target_os = "macos")]
+            native_qa: crate::macos_qa::Capture::from_env(),
+            #[cfg(target_os = "macos")]
+            open_documents: None,
         };
         theme::palette::select(&cc.egui_ctx, app.palette);
+        #[cfg(target_os = "macos")]
+        match crate::macos_menu::NativeMenu::new(cc.egui_ctx.clone()) {
+            Ok(menu) => app.native_menu = Some(menu),
+            Err(error) => app.error = Some(format!("Cannot create the macOS menu: {error}")),
+        }
         app.load_vault(root);
         app
     }
@@ -1773,7 +1790,7 @@ impl NotesApp {
                 self.navigate(false);
             }
             if ctx.input_mut(|i| {
-                i.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, Key::F)
+                i.consume_key(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, Key::F)
             }) {
                 self.show_left = true;
                 self.searching = true;
@@ -1795,8 +1812,16 @@ impl NotesApp {
             }) && !self.tabs.is_empty()
             {
                 self.step_tab(true);
-            } else if ctx.input_mut(|i| i.consume_key(egui::Modifiers::COMMAND, Key::Tab))
-                && !self.tabs.is_empty()
+            } else if ctx.input_mut(|i| {
+                i.consume_key(
+                    if cfg!(target_os = "macos") {
+                        egui::Modifiers::CTRL
+                    } else {
+                        egui::Modifiers::COMMAND
+                    },
+                    Key::Tab,
+                )
+            }) && !self.tabs.is_empty()
             {
                 self.step_tab(false);
             }
@@ -1806,6 +1831,11 @@ impl NotesApp {
                 crate::window::QuitQuestion::Quit => Pending::ConfirmQuit,
                 crate::window::QuitQuestion::UnsavedChanges => Pending::Quit,
             });
+            #[cfg(target_os = "macos")]
+            if matches!(self.pending, Some(Pending::ConfirmQuit)) {
+                self.pending = None;
+                crate::window::close(ctx, "keyboard shortcut");
+            }
         }
         if ctx
             .input_mut(|i| i.consume_key(egui::Modifiers::COMMAND | egui::Modifiers::SHIFT, Key::T))
@@ -4803,7 +4833,7 @@ impl NotesApp {
                         for (index, command) in matches.iter().enumerate() {
                             let row = ui.add(
                                 egui::Button::new(command.name)
-                                    .shortcut_text(command.shortcut)
+                                    .shortcut_text(rustidian::platform::shortcut(command.shortcut))
                                     .selected(index == self.dialog_selected)
                                     .frame_when_inactive(false)
                                     .min_size(egui::vec2(ui.available_width(), theme::space::CONTROL)),
@@ -5642,6 +5672,19 @@ impl NotesApp {
                 self.editor.insert_text(tab, text);
             }
             "Open settings" => self.ask(Dialog::Settings),
+            "Command palette" => self.ask(Dialog::Commands),
+            "Find in note" => {
+                self.find.open = true;
+                self.find.focus = true;
+                self.editor.focus = false;
+            }
+            "Search vault" => {
+                self.show_left = true;
+                self.searching = true;
+                self.show_bookmarks = false;
+                self.search_focus = true;
+                self.editor.focus = false;
+            }
             "New note" => self.create_note(),
             "New folder" => self.ask(Dialog::NewFolder),
             "Add property" => self.ask(Dialog::AddProperty),
@@ -5929,6 +5972,36 @@ impl NotesApp {
 
 impl eframe::App for NotesApp {
     fn raw_input_hook(&mut self, ctx: &egui::Context, raw: &mut egui::RawInput) {
+        #[cfg(target_os = "macos")]
+        {
+            let actions = self
+                .native_menu
+                .as_ref()
+                .map(|menu| menu.take_actions())
+                .unwrap_or_default();
+            for action in actions {
+                if let Some(events) = action.input() {
+                    raw.events.extend(events);
+                    continue;
+                }
+                match action {
+                    crate::macos_menu::Action::Quit => {
+                        crate::window::close(ctx, "application menu")
+                    }
+                    crate::macos_menu::Action::Command(command) if !self.interaction_blocked() => {
+                        self.command(command, ctx)
+                    }
+                    crate::macos_menu::Action::Appearance(dark) if !self.interaction_blocked() => {
+                        self.appearance =
+                            dark.map(theme::Appearance::from_dark).unwrap_or_default();
+                        theme::palette::remember_appearance(self.appearance);
+                        theme::apply_appearance(ctx, self.appearance);
+                        self.persist_session();
+                    }
+                    _ => {}
+                }
+            }
+        }
         self.agent.raw_input(ctx, raw);
         self.system_theme.update(ctx, raw, self.appearance);
         self.page_pan.raw_input(
@@ -6040,6 +6113,24 @@ impl eframe::App for NotesApp {
         if let Some(signal) = crate::window::take_signal() {
             self.quit(ctx, signal);
         }
+        #[cfg(target_os = "macos")]
+        {
+            let documents: Vec<_> = self
+                .open_documents
+                .as_ref()
+                .map(|events| events.receiver.try_iter().collect())
+                .unwrap_or_default();
+            for request in documents {
+                match request {
+                    crate::macos_events::Request::Open(path) => {
+                        self.open_system_selection(rustidian::native_picker::Kind::File, path)
+                    }
+                    crate::macos_events::Request::Quit => {
+                        crate::window::close(ctx, "macOS quit request")
+                    }
+                }
+            }
+        }
         if ctx.input(|input| input.viewport().close_requested()) {
             self.on_close_request(ctx);
         }
@@ -6130,6 +6221,15 @@ impl eframe::App for NotesApp {
             && !self.file_move.active();
         if let Some(kind) = crate::window::title_bar(ui, &self.window_title, file_actions_enabled) {
             self.start_open_picker(kind);
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(menu) = &self.native_menu {
+            menu.set_enabled(
+                file_actions_enabled,
+                self.tabs
+                    .get(self.active)
+                    .is_some_and(|tab| !tab.document.is_blank()),
+            );
         }
         let status = egui::Panel::bottom("status")
             .exact_size(28.0)
@@ -6262,6 +6362,15 @@ impl eframe::App for NotesApp {
             );
         }
         crate::ui_probe::flush(&ctx);
+        #[cfg(target_os = "macos")]
+        if let Err(error) = self.native_qa.tick(
+            &ctx,
+            _frame,
+            self.vault.is_some() && self.loading_root.is_none(),
+        ) {
+            eprintln!("macos-qa: {error}");
+            self.error = Some(error);
+        }
         if self.first_frame {
             eprintln!(
                 "first_ui_frame_prepared_us={}",

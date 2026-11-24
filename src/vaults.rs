@@ -39,10 +39,7 @@ fn pin_first(roots: &mut Vec<PathBuf>, pinned: &[PathBuf]) {
 }
 
 pub fn location() -> Option<PathBuf> {
-    std::env::var_os("XDG_DATA_HOME")
-        .map(PathBuf::from)
-        .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".local/share")))
-        .map(|base| crate::paths::app_directory(&base).join("vaults.json"))
+    crate::platform::data_base().map(|base| crate::paths::app_directory(&base).join("vaults.json"))
 }
 
 /// Where the vault Masih last read is kept: beside the vault list, outside his notes.
@@ -101,15 +98,18 @@ pub fn default_vault() -> Option<PathBuf> {
         .map(PathBuf::from)
 }
 
-/// Install a private, writable copy of the demo shipped alongside a Linux executable.
-#[cfg(target_os = "linux")]
+/// Install a private, writable copy of the demo shipped with the application.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn bundled_demo_vault(executable: &Path, app_data: &Path) -> std::io::Result<Option<PathBuf>> {
     use std::{fs, io};
 
     let Some(bin) = executable.parent() else {
         return Ok(None);
     };
+    #[cfg(target_os = "linux")]
     let source = bin.join("../share/rustidian/demo-vault");
+    #[cfg(target_os = "macos")]
+    let source = bin.join("../Resources/demo-vault");
     if !source.is_dir() {
         return Ok(None);
     }
@@ -273,7 +273,10 @@ impl Vaults {
     }
 
     pub fn forget(&mut self, root: &Path) -> Result<(), String> {
-        self.update(|roots| roots.retain(|path| path != root))
+        // Match remember() even when macOS exposes the same folder through /var and /private/var.
+        // A missing folder can still be removed using its stored path.
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.to_owned());
+        self.update(|roots| roots.retain(|path| *path != canonical))
     }
 
     fn update(&mut self, change: impl FnOnce(&mut Vec<PathBuf>)) -> Result<(), String> {
@@ -364,13 +367,19 @@ mod tests {
         list.remember(&a).unwrap();
         list.remember(&b).unwrap();
         list.remember(&a.join(".")).unwrap();
-        assert_eq!(list.roots(), [a.clone(), b.clone()]);
+        assert_eq!(
+            list.roots(),
+            [a.canonicalize().unwrap(), b.canonicalize().unwrap()]
+        );
         assert_eq!(
             Vaults::load(location.clone()).unwrap().roots(),
             list.roots()
         );
         list.forget(&a).unwrap();
-        assert_eq!(Vaults::load(location).unwrap().roots(), [b]);
+        assert_eq!(
+            Vaults::load(location).unwrap().roots(),
+            [b.canonicalize().unwrap()]
+        );
         assert_eq!(fs::read_to_string(a.join("Keep.md")).unwrap(), "original");
     }
 
@@ -416,7 +425,7 @@ mod tests {
         fs::remove_file(&location).unwrap();
         fs::create_dir(&location).unwrap();
         assert!(list.forget(&root).is_err());
-        assert_eq!(list.roots(), [root]);
+        assert_eq!(list.roots(), [root.canonicalize().unwrap()]);
         fs::remove_dir(&location).unwrap();
         fs::write(&location, "{broken").unwrap();
         assert!(Vaults::load(location.clone()).is_err());
@@ -470,7 +479,8 @@ mod tests {
     fn creating_a_vault_is_contained_empty_and_never_reuses_a_destination() {
         let base = tempfile::tempdir().unwrap();
         let root = create(base.path(), "یادداشت Notes").unwrap();
-        assert_eq!(root.parent(), Some(base.path()));
+        let canonical_base = base.path().canonicalize().unwrap();
+        assert_eq!(root.parent(), Some(canonical_base.as_path()));
         assert_eq!(fs::read_dir(&root).unwrap().count(), 0);
         fs::write(root.join("Keep.md"), "original").unwrap();
         assert!(create(base.path(), "یادداشت Notes").is_err());

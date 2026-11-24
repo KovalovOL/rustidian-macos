@@ -1,6 +1,10 @@
 <div align="center">
 
-# Rustidian
+# Rustidian for macOS
+
+Native macOS fork of [MasihMoafi/rustidian](https://github.com/MasihMoafi/rustidian). AppKit window controls, a native menu bar and file dialogs, Finder integration, Command shortcuts, and an Obsidian-inspired light/dark theme. Linux support is retained.
+
+**[macOS build, packaging and verification](docs/MACOS.md)** · **[macOS CI builds](https://github.com/KovalovOL/rustidian-macos/actions/workflows/macos.yml)**
 
 <table>
   <tr>
@@ -11,7 +15,7 @@
   </tr>
 </table>
 
-**A native Markdown notebook for Linux. Your files, your folders, no account.**
+**A native Markdown notebook for macOS and Linux. Your files, your folders, no account.**
 
 Opens Obsidian-format vaults and started faster than Obsidian in our [paired test](docs/performance/startup-2026-10-22/README.md) (0.61 s vs 3.77 s, earlier build, one setup). Independent, not affiliated with Obsidian.
 

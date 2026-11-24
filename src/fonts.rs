@@ -47,6 +47,7 @@ fn interface(face: &str) -> FontFamily {
 }
 
 /// Installed families, by name, for the pickers; monospace ones only if `mono`.
+#[cfg(not(target_os = "macos"))]
 pub fn installed(mono: bool) -> &'static [String] {
     static ALL: OnceLock<Vec<String>> = OnceLock::new();
     static MONO: OnceLock<Vec<String>> = OnceLock::new();
@@ -74,6 +75,7 @@ pub fn installed(mono: bool) -> &'static [String] {
 }
 
 /// The installed file for `family` in `face`, or `None` when no such family is installed.
+#[cfg(not(target_os = "macos"))]
 fn file(family: &str, face: &str) -> Option<egui::FontData> {
     let style = match face {
         "semibold" => ":weight=semibold",
@@ -100,6 +102,74 @@ fn file(family: &str, face: &str) -> Option<egui::FontData> {
     let mut data = egui::FontData::from_owned(std::fs::read(path).ok()?);
     data.index = index.parse().unwrap_or(0);
     Some(data)
+}
+
+#[cfg(target_os = "macos")]
+pub fn installed(mono: bool) -> &'static [String] {
+    static ALL: OnceLock<Vec<String>> = OnceLock::new();
+    static MONO: OnceLock<Vec<String>> = OnceLock::new();
+    if mono {
+        MONO.get_or_init(|| macos_fonts(true))
+    } else {
+        ALL.get_or_init(|| macos_fonts(false))
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn macos_fonts(mono: bool) -> Vec<String> {
+    use font_kit::{family_name::FamilyName, properties::Properties, source::SystemSource};
+    let source = SystemSource::new();
+    let mut names = source.all_families().unwrap_or_default();
+    names.retain(|name| {
+        !name.starts_with('.')
+            && (!mono
+                || source
+                    .select_best_match(&[FamilyName::Title(name.clone())], &Properties::new())
+                    .ok()
+                    .and_then(|handle| handle.load().ok())
+                    .is_some_and(|font| font.is_monospace()))
+    });
+    names.sort_by_key(|name| name.to_lowercase());
+    names.dedup();
+    names
+}
+
+#[cfg(target_os = "macos")]
+fn file(family: &str, face: &str) -> Option<egui::FontData> {
+    use font_kit::{
+        family_name::FamilyName,
+        handle::Handle,
+        properties::{Properties, Style, Weight},
+        source::SystemSource,
+    };
+    let properties = Properties {
+        style: if face == "italic" {
+            Style::Italic
+        } else {
+            Style::Normal
+        },
+        weight: match face {
+            "semibold" => Weight::SEMIBOLD,
+            "bold" => Weight::BOLD,
+            _ => Weight::NORMAL,
+        },
+        ..Properties::new()
+    };
+    match SystemSource::new()
+        .select_best_match(&[FamilyName::Title(family.into())], &properties)
+        .ok()?
+    {
+        Handle::Path { path, font_index } => {
+            let mut data = egui::FontData::from_owned(std::fs::read(path).ok()?);
+            data.index = font_index;
+            Some(data)
+        }
+        Handle::Memory { bytes, font_index } => {
+            let mut data = egui::FontData::from_owned(bytes.as_ref().clone());
+            data.index = font_index;
+            Some(data)
+        }
+    }
 }
 
 /// Add the chosen families in front of Rustidian's own, and give note text

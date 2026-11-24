@@ -262,6 +262,9 @@ pub fn interactive(ui: &egui::Ui) -> Color32 {
 }
 
 pub fn heading(ui: &egui::Ui, level: u8) -> Color32 {
+    if palette::current(ui.ctx()) == palette::Palette::Obsidian {
+        return ui.visuals().text_color();
+    }
     match (ui.visuals().dark_mode, level) {
         (true, 1) => Color32::from_rgb(244, 240, 232),
         (true, 2) => Color32::from_rgb(217, 231, 228),
@@ -277,6 +280,12 @@ pub fn apply(ctx: &egui::Context, dark: bool) {
 }
 
 pub fn apply_appearance(ctx: &egui::Context, appearance: Appearance) {
+    #[cfg(target_os = "macos")]
+    rustidian::platform::macos::appearance(match appearance {
+        Appearance::System => None,
+        Appearance::Dark => Some(true),
+        Appearance::Light => Some(false),
+    });
     ctx.set_theme(appearance.preference());
     palette::select(ctx, palette::current(ctx));
     ctx.options_mut(|options| {
@@ -366,6 +375,16 @@ fn apply_style(ctx: &egui::Context, dark: bool) {
         visuals.widgets.hovered.bg_fill = visuals.widgets.hovered.weak_bg_fill;
         visuals.widgets.active.weak_bg_fill = accent.gamma_multiply(0.3);
         visuals.widgets.active.bg_fill = visuals.widgets.active.weak_bg_fill;
+    }
+    if palette == palette::Palette::Obsidian {
+        visuals.override_text_color = Some(Color32::from_gray(if dark { 218 } else { 34 }));
+        visuals.weak_text_color = Some(Color32::from_gray(if dark { 153 } else { 102 }));
+        visuals.code_bg_color = Color32::from_gray(if dark { 36 } else { 242 });
+        let border = Color32::from_gray(if dark { 54 } else { 224 });
+        visuals.widgets.noninteractive.bg_stroke = Stroke::new(1.0, border);
+        visuals.widgets.inactive.bg_fill = Color32::from_gray(if dark { 46 } else { 255 });
+        visuals.widgets.hovered.weak_bg_fill = Color32::from_gray(if dark { 51 } else { 237 });
+        visuals.widgets.hovered.bg_fill = visuals.widgets.hovered.weak_bg_fill;
     }
     ctx.style_mut_of(egui::Theme::from_dark_mode(dark), |style| {
         style.visuals = visuals;
@@ -1169,7 +1188,7 @@ mod tests {
                         assert_eq!(ui.visuals().dark_mode, dark);
                         assert_eq!(
                             ui.visuals().window_fill,
-                            super::palette::Palette::Teal.background(dark)
+                            super::palette::current(&ctx).background(dark)
                         );
                         assert_eq!(egui::TextStyle::Button.resolve(ui.style()).size, 14.0);
                         assert_eq!(ui.spacing().scroll.bar_width, 6.0);

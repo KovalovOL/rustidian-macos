@@ -4,10 +4,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Palette {
+    #[cfg_attr(target_os = "macos", default)]
+    Obsidian,
     LoveSpace,
     ElpisGold,
     Signature,
-    #[default]
+    #[cfg_attr(not(target_os = "macos"), default)]
     #[serde(other)]
     Teal,
 }
@@ -15,6 +17,7 @@ pub enum Palette {
 impl Palette {
     pub fn name(self) -> &'static str {
         match self {
+            Self::Obsidian => "Obsidian",
             Self::Teal => "Original teal",
             Self::LoveSpace => "Love Space",
             Self::ElpisGold => "Elpis Gold",
@@ -24,6 +27,8 @@ impl Palette {
 
     pub fn accent(self, dark: bool) -> Color32 {
         let rgb = match (self, dark) {
+            (Self::Obsidian, true) => [168, 139, 250],
+            (Self::Obsidian, false) => [120, 87, 218],
             (Self::Teal, true) => [101, 183, 182],
             (Self::Teal, false) => [14, 117, 124],
             (Self::LoveSpace, true) => [236, 87, 94],
@@ -38,6 +43,8 @@ impl Palette {
 
     pub fn background(self, dark: bool) -> Color32 {
         let rgb = match (self, dark) {
+            (Self::Obsidian, true) => [30, 30, 30],
+            (Self::Obsidian, false) => [255, 255, 255],
             (Self::Teal, true) => [23, 27, 29],
             (Self::Teal, false) => [247, 246, 242],
             (Self::LoveSpace, true) => [29, 23, 27],
@@ -51,6 +58,9 @@ impl Palette {
     }
 
     pub fn side(self, dark: bool) -> Color32 {
+        if self == Self::Obsidian {
+            return Color32::from_gray(if dark { 38 } else { 246 });
+        }
         let background = self.background(dark);
         let scale = if dark { 0.77 } else { 0.94 };
         Color32::from_rgb(
@@ -62,7 +72,7 @@ impl Palette {
 
     pub fn logo(self) -> (&'static str, &'static [u8]) {
         match self {
-            Self::Teal => (
+            Self::Teal | Self::Obsidian => (
                 "bytes://rustidian/original.png",
                 include_bytes!("../docs/brand/rustidian.png"),
             ),
@@ -97,11 +107,7 @@ pub fn global_file(state_base: &std::path::Path) -> std::path::PathBuf {
 }
 
 fn state_base() -> Option<std::path::PathBuf> {
-    std::env::var_os("XDG_STATE_HOME")
-        .map(std::path::PathBuf::from)
-        .or_else(|| {
-            std::env::var_os("HOME").map(|home| std::path::PathBuf::from(home).join(".local/state"))
-        })
+    rustidian::platform::state_base()
 }
 
 pub fn read_global(state_base: &std::path::Path) -> Option<Palette> {
@@ -251,6 +257,7 @@ pub fn picker(ui: &mut egui::Ui, selected: &mut Palette, dark: bool) -> bool {
             let width = ((ui.available_width() - 24.0) / 4.0).clamp(116.0, 210.0);
             ui.horizontal(|ui| {
                 for palette in [
+                    Palette::Obsidian,
                     Palette::Teal,
                     Palette::LoveSpace,
                     Palette::ElpisGold,

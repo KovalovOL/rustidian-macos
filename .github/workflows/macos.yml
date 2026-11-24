@@ -1,0 +1,58 @@
+name: macOS
+
+on:
+  push:
+    branches: [main, macos-native]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-15
+            target: aarch64-apple-darwin
+            arch: arm64
+          - runner: macos-15-intel
+            target: x86_64-apple-darwin
+            arch: x86_64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 40
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '12.0'
+      CARGO_TERM_COLOR: always
+      CARGO_PROFILE_RELEASE_LTO: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Install Rust
+        run: rustup toolchain install 1.95.0 --profile minimal --component rustfmt --component clippy
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0
+        with:
+          key: macos-${{ matrix.target }}
+      - name: Check formatting
+        run: cargo +1.95.0 fmt --all -- --check
+      - name: Lint all targets
+        run: cargo +1.95.0 clippy --locked --all-targets -- -D warnings
+      - name: Run all unit and integration tests
+        run: cargo +1.95.0 test --locked --release --all-targets --no-fail-fast
+      - name: Build native application
+        run: cargo +1.95.0 build --locked --release --bin rustidian --target ${{ matrix.target }}
+      - name: Package and verify
+        run: |
+          python3 scripts/package-macos.py --binary target/${{ matrix.target }}/release/rustidian --output dist/Rustidian.app
+          dist/Rustidian.app/Contents/MacOS/rustidian --version
+          dist/Rustidian.app/Contents/MacOS/rustidian --check-vault demo-vault
+      - name: Verify native windows, menus and both themes
+        run: python3 scripts/verify-macos.py --app dist/Rustidian.app --output reports/macos
+      - name: Upload application and checksum
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rustidian-macos-${{ matrix.arch }}
+          path: |
+            dist/Rustidian.zip
+            dist/Rustidian.zip.sha256

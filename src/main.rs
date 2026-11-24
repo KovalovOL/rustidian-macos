@@ -11,6 +11,12 @@ mod graph_ui;
 mod image_view;
 #[cfg(unix)]
 mod instance;
+#[cfg(target_os = "macos")]
+mod macos_events;
+#[cfg(target_os = "macos")]
+mod macos_menu;
+#[cfg(target_os = "macos")]
+mod macos_qa;
 mod math_inline;
 mod math_ui;
 mod note_embed_ui;
@@ -95,6 +101,8 @@ fn main() -> eframe::Result {
     // the queue for its first pass.
     #[cfg(unix)]
     let ui_context = std::sync::Arc::<std::sync::OnceLock<eframe::egui::Context>>::default();
+    #[cfg(target_os = "macos")]
+    let open_documents = macos_events::OpenDocuments::new(ui_context.clone());
     #[cfg(unix)]
     let launches = {
         let requested = first
@@ -127,7 +135,7 @@ fn main() -> eframe::Result {
         .or_else(|| remembered.as_ref().map(|(root, _)| root.clone()))
         .or_else(|| default_vault.clone())
         .or_else(|| {
-            #[cfg(target_os = "linux")]
+            #[cfg(any(target_os = "linux", target_os = "macos"))]
             {
                 let executable = std::env::current_exe().ok()?;
                 let catalog = rustidian::vaults::location()?;
@@ -139,7 +147,7 @@ fn main() -> eframe::Result {
                     }
                 }
             }
-            #[cfg(not(target_os = "linux"))]
+            #[cfg(not(any(target_os = "linux", target_os = "macos")))]
             None
         })
         .unwrap_or_else(|| {
@@ -174,8 +182,12 @@ fn main() -> eframe::Result {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title(rustidian::APP_NAME)
             .with_app_id("rustidian")
-            .with_decorations(false)
-            .with_inner_size([1380.0, 900.0])
+            .with_decorations(cfg!(target_os = "macos"))
+            .with_inner_size(if cfg!(target_os = "macos") {
+                [1180.0, 760.0]
+            } else {
+                [1380.0, 900.0]
+            })
             .with_min_inner_size([860.0, 560.0]),
         renderer: eframe::Renderer::Glow,
         ..Default::default()
@@ -188,6 +200,12 @@ fn main() -> eframe::Result {
             #[cfg(unix)]
             let _ = ui_context.set(cc.egui_ctx.clone());
             let mut app = app::NotesApp::new(cc, &root, started, startup_document);
+            #[cfg(target_os = "macos")]
+            {
+                // Cocoa may install defaults after the early launch hook.
+                open_documents.install();
+                app.open_documents = Some(open_documents);
+            }
             #[cfg(unix)]
             {
                 app.launches = launches;

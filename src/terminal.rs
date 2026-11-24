@@ -649,8 +649,12 @@ mod tests {
             "printf 'in %s as %s at %s\\n' \"$(pwd)\" \"$TERM\" \"$(stty size)\"\nread line\necho \"got $line\"\nexit 3\n",
         );
         let mut session = Session::start(&program, &[], folder.path(), (12, 100), || {}).unwrap();
-        let contents = |session: &Session| session.lock().screen().contents();
-        let greeting = format!("in {} as xterm-256color at 12 100", folder.path().display());
+        // Long canonical macOS temporary paths may wrap across terminal rows.
+        let contents = |session: &Session| session.lock().screen().contents().replace('\n', "");
+        let greeting = format!(
+            "in {} as xterm-256color at 12 100",
+            folder.path().canonicalize().unwrap().display()
+        );
         wait_until("the greeting", || contents(&session).contains(&greeting));
         session.write(b"hello\r".to_vec());
         wait_until("the reply", || contents(&session).contains("got hello"));

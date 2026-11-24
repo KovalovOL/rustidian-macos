@@ -54,7 +54,10 @@ fn images_resolve_relative_root_and_unique_names_without_escaping_the_vault() {
             vault
                 .resolve_attachment(Path::new("Notes/Note.md"), target)
                 .unwrap(),
-            temp.path().join("Assets/Hello world.PNG")
+            temp.path()
+                .join("Assets/Hello world.PNG")
+                .canonicalize()
+                .unwrap()
         );
     }
     for target in [
@@ -82,7 +85,10 @@ fn images_resolve_relative_root_and_unique_names_without_escaping_the_vault() {
         vault
             .resolve_attachment(Path::new("Notes/Note.md"), "Hello world.PNG")
             .unwrap(),
-        temp.path().join("Notes/Hello world.PNG")
+        temp.path()
+            .join("Notes/Hello world.PNG")
+            .canonicalize()
+            .unwrap()
     );
 }
 

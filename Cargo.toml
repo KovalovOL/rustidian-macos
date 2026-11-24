@@ -1,10 +1,10 @@
 [package]
 name = "rustidian"
-version = "0.1.7"
+version = "0.2.0"
 edition = "2024"
 rust-version = "1.95"
-description = "Rustidian — a native Markdown notebook for local vaults"
-repository = "https://github.com/MasihMoafi/rustidian"
+description = "Rustidian — a native Markdown notebook for macOS and Linux"
+repository = "https://github.com/KovalovOL/rustidian-macos"
 readme = "README.md"
 keywords = ["markdown", "notes", "obsidian", "egui"]
 categories = ["text-editors"]
@@ -63,6 +63,17 @@ wayland-protocols = { version = "0.32", features = ["client", "staging"] }
 
 [target.'cfg(target_os = "linux")'.dev-dependencies]
 egui-winit = { version = "0.37", default-features = false }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+muda = { version = "=0.21.2", default-features = false }
+objc2 = "0.6"
+objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSURL", "NSAppleEventDescriptor", "NSAppleEventManager", "objc2-core-services"] }
+objc2-app-kit = { version = "0.3", features = ["NSApplication", "NSAppearance", "NSFont", "NSFontManager", "NSOpenPanel", "NSSavePanel", "NSPasteboard", "NSWorkspace", "NSWindow"] }
+block2 = "0.6"
+font-kit = "0.14"
+libc = "0.2"
+raw-window-handle = { version = "0.6", features = ["std"] }
+arboard = "3.6"
 
 [profile.release]
 opt-level = 3

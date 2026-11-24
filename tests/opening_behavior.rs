@@ -163,7 +163,7 @@ fn registered_vaults_keep_nested_files_and_do_not_match_neighbouring_names() {
     let alias = inner.join(".");
     let roots = [outer.clone(), alias];
     let (root, document) = resolve_input(&file, Some(&outer), &roots).unwrap();
-    assert_eq!(root, inner);
+    assert_eq!(root, inner.canonicalize().unwrap());
     assert_eq!(document.as_deref(), Some(Path::new("Notes/Note.md")));
     let vault = Vault::open(&root).unwrap();
     let note = vault.open_document(document.as_deref().unwrap()).unwrap();
@@ -174,7 +174,7 @@ fn registered_vaults_keep_nested_files_and_do_not_match_neighbouring_names() {
     let file = neighbour.join("Note.md");
     fs::write(&file, "Original").unwrap();
     let (root, document) = resolve_input(&file, Some(&outer), &roots).unwrap();
-    assert_eq!(root, neighbour);
+    assert_eq!(root, neighbour.canonicalize().unwrap());
     assert_eq!(document.as_deref(), Some(Path::new("Note.md")));
     assert_eq!(fs::read_to_string(file).unwrap(), "Original");
 }

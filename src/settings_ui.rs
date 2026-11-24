@@ -419,7 +419,7 @@ impl NotesApp {
                                 for command in rustidian::commands::ranked("", Scope::Editor) {
                                     if !command.shortcut.is_empty() {
                                         row(ui, command.name, "", |ui| {
-                                            ui.weak(command.shortcut);
+                                            ui.weak(rustidian::platform::shortcut(command.shortcut));
                                             false
                                         });
                                         ui.separator();

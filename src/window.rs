@@ -1,5 +1,11 @@
-use crate::theme::{self, Icon};
-use eframe::egui::{self, Align, Color32, FontId, Layout, PointerButton, Sense, ViewportCommand};
+use crate::theme;
+#[cfg(not(target_os = "macos"))]
+use crate::theme::Icon;
+#[cfg(any(not(target_os = "macos"), test))]
+use eframe::egui::PointerButton;
+use eframe::egui::{self, ViewportCommand};
+#[cfg(not(target_os = "macos"))]
+use eframe::egui::{Align, Color32, FontId, Layout, Sense};
 use std::sync::atomic::{AtomicI32, Ordering};
 
 /// Leave Rustidian's exact Ctrl+Q as the only quit key. egui's built-in one
@@ -116,6 +122,7 @@ pub fn close(ctx: &egui::Context, source: &'static str) {
 /// winit 0.30 delivers dropped files only to X11 windows, so on Wayland dragging
 /// an image or a note into Rustidian did nothing (5 Nov). `RUSTIDIAN_WAYLAND`
 /// keeps a native Wayland window, without drops.
+#[cfg(any(target_os = "linux", test))]
 pub fn use_x11_for_drops(wayland_wanted: bool, wayland_display: bool, x11_display: bool) -> bool {
     !wayland_wanted && wayland_display && x11_display
 }
@@ -323,6 +330,17 @@ pub fn take_signal() -> Option<&'static str> {
 }
 
 /// Keep window controls in the native app so hover feedback matches every other control.
+/// AppKit owns resizing, rounded corners and the actual traffic-light buttons on macOS.
+#[cfg(target_os = "macos")]
+pub fn title_bar(
+    _ui: &mut egui::Ui,
+    _title: &str,
+    _file_actions_enabled: bool,
+) -> Option<rustidian::native_picker::Kind> {
+    None
+}
+
+#[cfg(not(target_os = "macos"))]
 pub fn title_bar(
     ui: &mut egui::Ui,
     title: &str,
@@ -455,6 +473,7 @@ pub fn title_bar(
     action
 }
 
+#[cfg(not(target_os = "macos"))]
 fn control(ui: &mut egui::Ui, icon: Icon, label: &str, close: bool) -> egui::Response {
     // Not focusable: Tab, Space and Enter must never press a window button.
     let (rect, response) = ui.allocate_exact_size(egui::vec2(34.0, 28.0), Sense::CLICK);
@@ -480,6 +499,7 @@ fn control(ui: &mut egui::Ui, icon: Icon, label: &str, close: bool) -> egui::Res
     response.on_hover_text(label)
 }
 
+#[cfg(not(target_os = "macos"))]
 fn resize_edges(ui: &egui::Ui) {
     use egui::{CursorIcon, ResizeDirection};
     let (position, pressed, locked) = ui.input(|input| {
