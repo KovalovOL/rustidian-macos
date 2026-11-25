@@ -1,6 +1,4 @@
 /target/
 /dist/
 .DS_Store
-/reports/
-/assets/icons/proof/renders/traced-callout-*.png
 __pycache__/

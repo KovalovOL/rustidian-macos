@@ -1,0 +1,26 @@
+schema: spec-driven
+
+context: |
+  Language: English
+  All artifacts must be written in English.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+  Rustidian macOS is an independent macOS-focused fork of MasihMoafi/rustidian.
+  Owner direction (2026-11-25): develop and optimize this fork for macOS;
+  inherited Linux code is retained, but Linux feature/release parity is not
+  a product commitment. Do not delete the Linux backend as incidental work.
+  Stack: Rust 2024 / Rust 1.95+, egui/eframe 0.37 with Glow, objc2/AppKit,
+  muda and CoreText/font-kit. Preserve customized vendor/egui and vendor/epaint.
+  Existing baseline: specs/001-native-macos/{spec,plan,tasks}.md, version 0.2.0.
+  Baseline documents record prior results; they are not verification of this copy.
+  Read README.md and the active OpenSpec proposal, design and tasks before planning.
+  Source-only cleanup removed standalone tests, CI, old docs and generated skills.
+  Runtime logos now live in assets/brand; macOS packaging source is retained.
+  Keep future developer guidance in README/specs rather than separate agent docs.
+  Where inherited platform priorities conflict, the owner's macOS focus controls.
+  Never test on original personal vaults; use demo-vault or a disposable copy.
+  Preserve exact note bytes, atomic saves, external-change checks, recovery,
+  source-identity checks and atomic no-clobber moves. AppKit runs on main thread.
+  Reuse existing editor/command/save paths; no Electron/Tauri rewrite or second
+  persistence system. Obsidian JS plugins, Canvas/Bases parity and cloud sync
+  are not implied. Measure performance on matched inputs and named builds.
+  Keep user conversation Ukrainian and repository documentation English.

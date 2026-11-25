@@ -2310,7 +2310,26 @@ mod tests {
 
     #[test]
     fn compound_inline_styles_keep_the_whole_document_on_the_native_renderer() {
-        let parsed = Parsed::new(include_str!("../tests/fixtures/inline-styles.md"));
+        let parsed = Parsed::new(
+            r#"# Shared inline formatting
+
+Paragraph <span style="color:#2b7a4b;font-weight:700">DW</span>, <mark style="background-color: rgba(46, 204, 113, 0.4); color: inherit; padding: 0.1em 0.2em; border-radius: 3px;">56h</mark> and ==11h==.
+
+| day | <span style="color:#2b7a4b;font-weight:700">DW</span> | actual total |
+| --- | --- | --- |
+| Sat · Aug 1 | ==11h== | <mark style="background-color: rgba(46, 204, 113, 0.4); color: inherit; padding: 0.1em 0.2em; border-radius: 3px;">8h</mark> |
+| Sun · Aug 2 | <span style="color:#b86108;font-weight:700">4h</span> | 6h |
+
+> [!note] Shared formatting
+> Callout <span style="color:#2b7a4b;font-weight:700">DW</span> and <mark style="background-color:rgba(46,204,113,0.4);color:inherit;padding:0.1em 0.2em">56h</mark>.
+>
+> | expected total | actual total |
+> | --- | --- |
+> | 56h | <mark style="background-color:rgba(46,204,113,0.4);color:inherit">49h</mark> |
+
+Literal code: `<mark style="background-color:rgba(46,204,113,0.4)">code</mark>` and `==literal==`.
+"#,
+        );
         assert!(!parsed.fallback);
         let table = parsed
             .blocks
@@ -2404,7 +2423,24 @@ mod tests {
 
     #[test]
     fn native_tables_preserve_alignments_styles_links_empty_cells_and_neighboring_code() {
-        let (source, links) = prepare(include_str!("../tests/fixtures/table.md"));
+        let (source, links) = prepare(
+            r#"## Table section
+
+| Item | State | Count |
+| :--- | :---: | ---: |
+| **Bold** | *Ready* | 42 |
+| [[Home\|Home note]] | `let x = 1;` | π |
+| Empty | | 0 |
+
+## After section
+
+~~~rust
+fn main() {
+    let answer: u32 = 42;
+}
+~~~
+"#,
+        );
         let parsed = Parsed::new(&source);
         assert!(!parsed.fallback);
         assert_eq!(parsed.blocks.len(), 4);

@@ -1,0 +1,4 @@
+Rustidian artwork
+
+The stone logo and palette variants are inherited Rustidian artwork.
+Rustidian is independent and unaffiliated with Obsidian. The MIT license of the source code does not grant rights in the Rustidian name or logo for use that implies endorsement.

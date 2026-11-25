@@ -1,0 +1,8 @@
+Noto Color Emoji and extracted marker glyphs
+
+Copyright 2022 Google Inc.
+https://github.com/googlefonts/noto-emoji/blob/e92753bfa55fd449e427d4d325f9c8c40408c74e/fonts/NotoColorEmoji.ttf
+SHA-256: 9fd0a3d0ce84d77e3185dfbae77bd1abf3926aa49a032e354d076c4f17151f10
+The unmodified font is split into 22 numbered parts and restored by build.rs.
+The six emoji-markers/*.png files are unmodified PNG glyphs extracted from
+the same font. See LICENSE-NotoColorEmoji.txt and LICENSE-Apache2.0.txt.

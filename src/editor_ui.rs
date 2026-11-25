@@ -4470,7 +4470,15 @@ mod tests {
 
     #[test]
     fn syntax_layout_preserves_original_bytes_and_indents_each_code_line_once() {
-        let source = include_str!("../tests/fixtures/syntax.md");
+        let source = r##"~~~rust
+fn main() {
+    let answer: u32 = 42;
+    let text = r#"**literal** [[No link]] π"#;
+    // A comment
+    println!("hello {answer}");
+}
+~~~
+"##;
         let parsed = Markdown::parse(source);
         let ctx = egui::Context::default();
         crate::theme::install_fonts(&ctx);

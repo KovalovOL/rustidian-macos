@@ -54,7 +54,7 @@ pub const DEFAULT_DOCUMENT_FONT_SIZE: u8 = 18;
 
 /// The one spacing scale for the app chrome: every gap, margin and padding is one of
 /// these. Note text keeps Obsidian's em-based typography (`preview.rs`), not this scale.
-/// `tests/spacing_scale.rs` fails on a raw spacing number outside this module.
+/// Keep raw spacing values centralized in this module.
 pub mod space {
     pub const XS: f32 = 4.0;
     pub const S: f32 = 8.0;

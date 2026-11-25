@@ -74,19 +74,19 @@ impl Palette {
         match self {
             Self::Teal | Self::Obsidian => (
                 "bytes://rustidian/original.png",
-                include_bytes!("../docs/brand/rustidian.png"),
+                include_bytes!("../assets/brand/rustidian.png"),
             ),
             Self::LoveSpace => (
                 "bytes://rustidian/love-space.png",
-                include_bytes!("../docs/brand/themes/love-space.png"),
+                include_bytes!("../assets/brand/themes/love-space.png"),
             ),
             Self::ElpisGold => (
                 "bytes://rustidian/elpis-gold.png",
-                include_bytes!("../docs/brand/themes/elpis-gold.png"),
+                include_bytes!("../assets/brand/themes/elpis-gold.png"),
             ),
             Self::Signature => (
                 "bytes://rustidian/signature.png",
-                include_bytes!("../docs/brand/themes/signature.png"),
+                include_bytes!("../assets/brand/themes/signature.png"),
             ),
         }
     }

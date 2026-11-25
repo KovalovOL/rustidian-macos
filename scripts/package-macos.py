@@ -31,9 +31,17 @@ def package(binary, output, identity="-"):
     for name in ("LICENSE", "THIRD_PARTY_NOTICES.txt"):
         shutil.copyfile(root / name, resources / name)
     shutil.copytree(root / "demo-vault", resources / "demo-vault", copy_function=shutil.copyfile)
+    licenses = resources / "licenses"
+    for source in [*(root / "assets/fonts").glob("LICENSE*.txt"),
+                   root / "assets/fonts/NOTICE.txt", root / "assets/brand/NOTICE.txt",
+                   root / "vendor/LICENSE-MIT", root / "vendor/LICENSE-APACHE",
+                   root / "vendor/NOTICE.txt"]:
+        destination = licenses / source.relative_to(root)
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(source, destination)
     with tempfile.TemporaryDirectory(prefix="rustidian-icon-") as scratch:
         png = Path(scratch) / "icon.png"
-        subprocess.run(["/usr/bin/sips", "-z", "1024", "1024", str(root / "docs/brand/store-icon.png"), "--out", str(png)], check=True, capture_output=True)
+        subprocess.run(["/usr/bin/sips", "-z", "1024", "1024", str(root / "assets/brand/themes/signature.png"), "--out", str(png)], check=True, capture_output=True)
         data = png.read_bytes()
         chunk = struct.pack(">4sI", b"ic10", len(data) + 8) + data
         (resources / "Rustidian.icns").write_bytes(struct.pack(">4sI", b"icns", len(chunk) + 8) + chunk)
